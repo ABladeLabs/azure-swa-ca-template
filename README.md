@@ -103,7 +103,19 @@ After running `init.sh`, complete these TODOs:
 - [ ] Follow `docs/workflow-setup.md` to configure OIDC + GitHub secrets
 - [ ] Deploy: `./infra/scripts/deploy.sh dev`
 
-## Resource Naming Convention
+## Naming Conventions
+
+Three casing styles are used, each in the context where it's standard:
+
+| Style | Where | Examples |
+|-------|-------|---------|
+| **lowercase** | Project name input, Docker images, ACR | `myapp`, `myappacr` |
+| **kebab-case** | Azure resources, GitHub repos, branches | `myapp-app-dev`, `myapp-sql-dev` |
+| **PascalCase** | .NET namespaces, C# classes, solution files | `MyApp.Api`, `ApplicationDbContext` |
+
+The project name passed to `init.sh` should be **lowercase** (single word) or **kebab-case** (multi-word). The `init.sh` script uses the name as-is for Azure resources and strips hyphens where required (e.g., ACR names must be alphanumeric).
+
+### Azure Resource Names
 
 | Resource | Pattern | Example |
 |----------|---------|---------|
