@@ -1,0 +1,43 @@
+# Deploy to Production Environment
+#
+# Manual trigger only. Deploys infrastructure, API, and web to production.
+#
+# Required GitHub Secrets:
+#   - AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID (OIDC login)
+#   - SQL_ADMIN_LOGIN, SQL_ADMIN_PASSWORD (Bicep infra)
+#   - AZURE_STATIC_WEB_APPS_API_TOKEN (SWA deployment token)
+
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  infra:
+    uses: ./.github/workflows/deploy-infra.yml
+    with:
+      environment: prod
+    secrets: inherit
+
+  api:
+    needs: infra
+    uses: ./.github/workflows/deploy-api.yml
+    with:
+      environment: prod
+      image-tag: ${{ github.sha }}
+    secrets: inherit
+
+  web:
+    needs: api
+    uses: ./.github/workflows/deploy-web.yml
+    with:
+      environment: prod
+    secrets: inherit

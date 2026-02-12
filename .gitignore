@@ -1,0 +1,34 @@
+# .NET
+bin/
+obj/
+*.db
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+appsettings.*.local.json
+
+# Node
+node_modules/
+dist/
+*.local
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Bicep build artifacts (compiled ARM templates)
+infra/bicep/*.json
+infra/bicep/modules/*.json

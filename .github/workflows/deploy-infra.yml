@@ -1,0 +1,54 @@
+# Reusable — Deploy Bicep Infrastructure
+#
+# Subscription-level deployment (Bicep creates resource groups):
+#   1. Shared infrastructure (ACR) → __PROJECT__-shared-rg
+#   2. Environment infrastructure  → __PROJECT__-{env}-rg
+#
+# Called by deploy-dev.yml (and staging/prod orchestrators).
+
+name: Deploy Infrastructure
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment (dev, staging, prod)'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy Bicep (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      LOCATION: __LOCATION__
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy shared infrastructure
+        run: |
+          az deployment sub create \
+            --name "__PROJECT__-shared" \
+            --location ${{ env.LOCATION }} \
+            --parameters infra/bicep/parameters.shared.bicepparam
+
+      - name: Deploy environment infrastructure
+        env:
+          SQL_ADMIN_LOGIN: ${{ secrets.SQL_ADMIN_LOGIN }}
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+        run: |
+          az deployment sub create \
+            --name "__PROJECT__-${{ inputs.environment }}" \
+            --location ${{ env.LOCATION }} \
+            --parameters infra/bicep/parameters.${{ inputs.environment }}.bicepparam

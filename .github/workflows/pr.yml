@@ -1,0 +1,144 @@
+# PR — CI + Preview Deployment
+#
+# Runs build/test/lint, then deploys API to dev and creates SWA preview.
+# Each job only runs when its relevant files changed.
+# Tears down SWA preview on PR close.
+#
+# Required GitHub Secrets:
+#   - AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID (OIDC login)
+#   - AZURE_STATIC_WEB_APPS_API_TOKEN (SWA deployment token)
+
+name: PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ============================================================
+  # Detect which directories changed
+  # ============================================================
+  detect-changes:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'src/api/**'
+            web:
+              - 'src/web/**'
+
+  # ============================================================
+  # CI — API
+  # ============================================================
+  build-api:
+    name: Build & Test API
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # TODO: Add your API build & test steps here. Examples:
+      #
+      # .NET:
+      #   - uses: actions/setup-dotnet@v5
+      #     with: { dotnet-version: '10.0.x' }
+      #   - run: dotnet restore
+      #   - run: dotnet build --no-restore
+      #   - run: dotnet test --no-build
+      #
+      # Node.js:
+      #   - uses: actions/setup-node@v6
+      #     with: { node-version: '22' }
+      #   - run: npm ci
+      #   - run: npm test
+      - name: Placeholder
+        run: echo "TODO - Add API build & test steps"
+
+  # ============================================================
+  # CI — Web
+  # ============================================================
+  lint-web:
+    name: Lint & Build Web
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # TODO: Add your frontend build & lint steps here. Examples:
+      #
+      # React + pnpm:
+      #   - uses: actions/setup-node@v6
+      #     with: { node-version: '22' }
+      #   - uses: pnpm/action-setup@v4
+      #     with: { version: latest }
+      #   - run: pnpm --dir src/web install --frozen-lockfile
+      #   - run: pnpm --dir src/web lint
+      #   - run: pnpm --dir src/web build
+      - name: Placeholder
+        run: echo "TODO - Add frontend lint & build steps"
+
+  # ============================================================
+  # Deploy API to dev (after CI passes)
+  # ============================================================
+  deploy-api:
+    needs: [detect-changes, build-api]
+    if: |
+      !cancelled() &&
+      needs.detect-changes.outputs.api == 'true' &&
+      needs.build-api.result == 'success'
+    uses: ./.github/workflows/deploy-api.yml
+    with:
+      environment: dev
+      image-tag: pr-${{ github.event.pull_request.number }}
+    secrets: inherit
+
+  # ============================================================
+  # Deploy frontend SWA preview (after CI + API deploy)
+  # ============================================================
+  deploy-web:
+    needs: [detect-changes, lint-web, deploy-api]
+    if: |
+      !cancelled() &&
+      needs.detect-changes.outputs.web == 'true' &&
+      needs.lint-web.result == 'success' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
+    uses: ./.github/workflows/deploy-web.yml
+    with:
+      environment: dev
+      action: upload
+    secrets: inherit
+
+  # ============================================================
+  # Tear down SWA preview on PR close
+  # ============================================================
+  cleanup-web:
+    if: github.event.action == 'closed'
+    uses: ./.github/workflows/deploy-web.yml
+    with:
+      environment: dev
+      action: close
+    secrets: inherit
